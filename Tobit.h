@@ -17,6 +17,7 @@ struct tobitinput{
     vec Y; // log count ratio
     vec Delta; // censorship
     mat X; // covariate matrix
+    tobitinput() = default;
     tobitinput(vec &dependent_vec, vec &censor_vec, mat &covar_mat):
         Y(dependent_vec), Delta(censor_vec), X(covar_mat){}
 };
@@ -35,6 +36,6 @@ struct tobitoutput{
 double tobitllk(unsigned ndim, const double* params, double* grad, void* input);
 
 // tobit estimation
-tobitoutput estimation(const tobitinput* input, bool null=false);
+tobitoutput estimation(void *input, bool null=false);
 
 #endif //BARTLETT_LRT_TOBIT_H

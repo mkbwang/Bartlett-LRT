@@ -4,4 +4,6 @@ cmake-build-debug/
 .Rproj.user
 *.R
 *.txt
+cmake-build-release/
+.Rhistory
 
