@@ -17,7 +17,7 @@ struct tobitinput{
     vec Y; // log count ratio
     vec Delta; // censorship
     mat X; // covariate matrix
-    tobitinput(vec dependent_vec, vec censor_vec, mat covar_mat):
+    tobitinput(vec &dependent_vec, vec &censor_vec, mat &covar_mat):
         Y(dependent_vec), Delta(censor_vec), X(covar_mat){}
 };
 
@@ -27,7 +27,7 @@ struct tobitoutput{
     vec params; // estimated parameter
     double llk; // log likelihood
     nlopt_result status; // optimization status
-    tobitoutput(vec estimate, double maxllk, nlopt_result outcome):
+    tobitoutput(vec &estimate, double maxllk, nlopt_result outcome):
         params(estimate), llk(maxllk), status(outcome){}
 };
 
