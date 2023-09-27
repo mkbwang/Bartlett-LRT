@@ -40,10 +40,15 @@ tobitoutput estimation(void *input, bool null){
     // optimization object
     nlopt_opt opt = nlopt_create(NLOPT_LD_MMA, n_dim);
     // nlopt_set_lower_bound(opt, n_dim-1, 0); // the inverse scale parameter is positive
+    std::vector<double> lower_bounds(n_dim, -HUGE_VAL);
+    std::vector<double> upper_bounds(n_dim, +HUGE_VAL);
     if (null) { // fitting null model
-        nlopt_set_lower_bound(opt, 1, 0);
-        nlopt_set_upper_bound(opt, 1, 0);
+        lower_bounds[1] = 0;
+        upper_bounds[1] = 0;
     }
+    nlopt_set_lower_bounds(opt, &lower_bounds[0]);
+    nlopt_set_upper_bounds(opt, &upper_bounds[0]);
+
     nlopt_set_max_objective(opt, tobitllk, input);
     nlopt_set_xtol_rel(opt, 1e-4);
     // set up the parameter vector to estimate
