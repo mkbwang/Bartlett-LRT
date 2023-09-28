@@ -27,9 +27,9 @@ struct tobitinput{
 struct tobitoutput{
     vec params; // estimated parameter
     double llk; // log likelihood
-    nlopt_result status; // optimization status
-    tobitoutput(vec &estimate, double maxllk, nlopt_result outcome):
-        params(estimate), llk(maxllk), status(outcome){}
+    int nevals; // optimization status
+    tobitoutput(vec &estimate, double maxllk, int nevals):
+        params(estimate), llk(maxllk), nevals(nevals){}
 };
 
 // tobit loglikelihood function

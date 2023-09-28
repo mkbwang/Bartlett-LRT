@@ -75,6 +75,7 @@ int main()
     tobitoutput full_estimates = estimation(&inputdata, false);
     full_estimates.params.print();
     cout << "Full loglik: " << full_estimates.llk << endl;
+    cout << "Number of evaluations: " << full_estimates.nevals << endl;
     tobitoutput null_estimates = estimation(&inputdata, true);
     null_estimates.params.print();
     cout << "Reduced loglik: " <<  null_estimates.llk << endl;
