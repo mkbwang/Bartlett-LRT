@@ -69,7 +69,7 @@ int main()
 
     tobitinput inputdata = readdata(nrows, ncols, inputfile);
 
-    vec teststat(1001, fill::zeros);
+    vec teststat(501, fill::zeros);
 
     // first fit the true data
     tobitoutput full_estimates = estimation(&inputdata, false);
@@ -85,7 +85,7 @@ int main()
     //bootstrap
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-    for (unsigned int j=1; j<1001; j++){
+    for (unsigned int j=1; j<501; j++){
         Col<uword> selected_indices = randi<uvec>(nrows, distr_param(0, nrows-1));
         boot_input.Y = inputdata.Y.elem(selected_indices);
         boot_input.Delta = inputdata.Delta.elem(selected_indices);
@@ -100,7 +100,7 @@ int main()
         std::endl;
 
     ofstream output(outputfile);
-    for(int j = 0; j<1001; j ++){
+    for(int j = 0; j<501; j ++){
         output << teststat(j) << "\n" ;
     }
     output.close();
