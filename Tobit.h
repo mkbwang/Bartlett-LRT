@@ -33,8 +33,8 @@ struct tobitoutput{
 };
 
 // tobit loglikelihood function
-double tobitllk(unsigned ndim, const double* params, double* grad, void* input);
-
+double tobitllk_vanilla(unsigned ndim, const double* params, double* grad, void* input);
+double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* input);
 // tobit estimation
 tobitoutput estimation(void *input, bool null=false);
 
