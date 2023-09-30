@@ -17,9 +17,11 @@ struct tobitinput{
     vec Y; // log count ratio
     vec Delta; // censorship
     mat X; // covariate matrix
+    size_t n_sample;
+    double stepsize; // gradient ascent step size
     tobitinput() = default;
     tobitinput(vec &dependent_vec, vec &censor_vec, mat &covar_mat):
-        Y(dependent_vec), Delta(censor_vec), X(covar_mat){}
+        Y(dependent_vec), Delta(censor_vec), X(covar_mat), n_sample(covar_mat.n_rows), stepsize(0.1/covar_mat.n_rows){}
 };
 
 
@@ -33,8 +35,8 @@ struct tobitoutput{
 };
 
 // tobit loglikelihood function
-double tobitllk(unsigned ndim, const double* params, double* grad, void* input);
-
+double tobitllk_vanilla(unsigned ndim, const double* params, double* grad, void* input);
+double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* input);
 // tobit estimation
 tobitoutput estimation(void *input, bool null=false);
 

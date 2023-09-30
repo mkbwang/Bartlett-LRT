@@ -11,7 +11,7 @@ endif()
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
 set(CMAKE_CXX_FLAGS_DEBUG "-g")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 
 find_package(Armadillo REQUIRED)
 SET(NLOPT_INCLUDE_DIR "/usr/local/include" "/usr/include/")
