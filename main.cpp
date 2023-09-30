@@ -96,7 +96,7 @@ int main()
 
     for (unsigned int j=1; j<501; j++){
         try{
-            arma_rng::set_seed(j+1000);
+            arma_rng::set_seed(j);
             // Col<uword> selected_indices = randperm(nrows, nrows);
             Col<uword> selected_indices = randi<uvec>(nrows, distr_param(0, nrows-1));
             boot_input.Y = inputdata.Y.elem(selected_indices);

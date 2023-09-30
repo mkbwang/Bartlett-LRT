@@ -9,18 +9,10 @@ double tobitllk_vanilla(unsigned ndim, const double* params, double* grad, void*
 
     auto inputdata= (const tobitinput *) input;
     vec rho(params, ndim-1); // beta/sigma
-//    cout << "Input effect size: " << endl;
-//    rho.as_row().print();
     double omega = exp(params[ndim-1]); // 1/sigma=omega=exp(phi), precision
-//    cout << "Input scale: " << 1/omega << endl;
     vec z = omega*inputdata->Y - inputdata->X * rho;
-    // cout << "Input z vector: " << endl;
-    //z.as_row().print();
     vec cumnorm_z = normcdf(z);
-    //cumnorm_z.as_row().print();
     vec exp_2z2 = exp(-0.5*square(z));
-    //exp_2z2.as_row().print();
-
 
     // calculate vanilla loglikelihood
     vec llk = inputdata->Delta % (-0.5*square(z) -0.5*log(2*datum::pi) + log(omega))  + \
@@ -30,16 +22,13 @@ double tobitllk_vanilla(unsigned ndim, const double* params, double* grad, void*
     vec deriv_rho(grad, ndim-1, false, true);
     vec deriv_z = -inputdata->Delta % z + \
         1/sqrt(2*datum::pi) * (1-inputdata->Delta) / cumnorm_z % exp_2z2;
-    //cout << "Derivative over z vector: " << endl;
-    //deriv_z.as_row().print();
 
-    deriv_rho =  - inputdata->X.t() * deriv_z / inputdata->n_sample; // gradient for the elements of rho
-    grad[ndim-1] = accu(inputdata->Delta) / inputdata->n_sample+ accu(deriv_z % inputdata->Y)*omega / inputdata->n_sample; // gradient for phi
-//    cout<< "Gradient of effect sizes: "<< endl;
-//    deriv_rho.as_row().print();
-//    cout << "grad of omega: " << grad[ndim-1] << endl;
+
+    deriv_rho =  - inputdata->X.t() * deriv_z * inputdata->stepsize; // gradient for the elements of rho
+    grad[ndim-1] = accu(inputdata->Delta) * inputdata->stepsize+ accu(deriv_z % inputdata->Y)*omega * inputdata->stepsize; // gradient for phi
+
     // return log likelihood
-    return accu(llk) ; // +firth_penalty
+    return accu(llk) ;
 }
 
 
@@ -47,14 +36,10 @@ double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* i
 
     auto inputdata= (const tobitinput *) input;
     vec rho(params, ndim-1); // beta/sigma
-//    cout << "Input effect size: " << endl;
-//    rho.as_row().print();
-    double omega = exp(params[ndim-1]); // 1/sigma=omega=exp(phi), precision
-//    cout << "Input scale: " << 1/omega << endl;
+    double omega = exp(params[ndim-1]); // 1/sigma=omega=exp(phi), sqrt(precision)
     vec z = omega*inputdata->Y - inputdata->X * rho;
     vec cumnorm_z = normcdf(z);
     vec exp_2z2 = exp(-0.5*square(z));
-    // cumnorm_z.print();
 
     // calculate vanilla loglikelihood
     vec llk = inputdata->Delta % (-0.5*square(z) -0.5*log(2*datum::pi) + log(omega))  + \
@@ -65,10 +50,10 @@ double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* i
     vec deriv_z = -inputdata->Delta % z + \
         1/sqrt(2*datum::pi) * (1-inputdata->Delta) / cumnorm_z % exp_2z2;
 
-    deriv_rho =  - inputdata->X.t() * deriv_z / inputdata->n_sample; // gradient for the elements of rho
+    deriv_rho =  - inputdata->X.t() * deriv_z * inputdata->stepsize; // gradient for the elements of rho
 //    cout<< "Gradient of effect sizes (vanilla): "<< endl;
 //    deriv_rho.as_row().print();
-    grad[ndim-1] = accu(inputdata->Delta)/inputdata->n_sample+ accu(deriv_z % inputdata->Y)*omega/inputdata->n_sample; // gradient for phi
+    grad[ndim-1] = accu(inputdata->Delta)* inputdata->stepsize+ accu(deriv_z % inputdata->Y)*omega* inputdata->stepsize; // gradient for phi
 //    cout << "grad of omega (vanilla): " << grad[ndim-1] << endl;
     // add gradients from the Firth penalty
     mat information(ndim, ndim, fill::randu); // information matrix
@@ -96,17 +81,14 @@ double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* i
         information_deriv(ndim-1, ndim-1) = - accu(neg_deriv_z3 % xvec % square(inputdata->Y));
         information_deriv(span(0, ndim-2), ndim-1) = inputdata->X.t() * (neg_deriv_z3 % xvec % inputdata->Y);
         information_deriv(ndim-1, span(0, ndim-2)) = information_deriv(span(0, ndim-2), ndim-1).as_row();
-        grad[k] += 0.5 * trace(inv_information * information_deriv) / inputdata->n_sample; // gradient of the kth covariate coefficient
+        grad[k] += 0.5 * trace(inv_information* information_deriv)* inputdata->stepsize; // gradient of the kth covariate coefficient
     }
-//    cout<< "Gradient of effect sizes (firth): "<< endl;
-//    deriv_rho.as_row().print();
     information_deriv(span(0, ndim-2), span(0, ndim-2)) = inputdata->X.t() * diagmat(neg_deriv_z3 % inputdata->Y) * inputdata->X;
     information_deriv(ndim-1, ndim-1) = accu(neg_deriv_z3 % inputdata->Y % square(inputdata->Y) ) - 2*accu(inputdata->Delta)/pow(omega, 3);
     information_deriv(span(0, ndim-2), ndim-1) = - inputdata->X.t() * (neg_deriv_z3 % square(inputdata->Y));
     information_deriv(ndim-1, span(0, ndim-2)) = information_deriv(span(0, ndim-2), ndim-1).as_row();
-    grad[ndim-1] += 0.5 * trace(inv_information * information_deriv)*omega / inputdata->n_sample; // gradient of the log precision
-//    cout << "grad of omega (firth): " << grad[ndim-1] << endl;
-     // cx_double logdet = log_det(information);
+    grad[ndim-1] += 0.5 * trace(inv_information* information_deriv)*omega * inputdata->stepsize; // gradient of the log precision
+
     double firth_penalty = 0.5 * log_det_sympd(information);// real(logdet)
 
     // return log likelihood
@@ -136,6 +118,8 @@ tobitoutput estimation(void *input, bool null){
 
     nlopt_set_max_objective(opt, tobitllk_firth, input);
     nlopt_set_ftol_rel(opt, 1e-4);
+    nlopt_set_ftol_abs(opt, 1e-7);
+    nlopt_set_vector_storage(opt, 3); // specific for L-BFGS, number of past gradients
     // set up the parameter vector to estimate
     vec param_estimate(n_dim, fill::zeros);
     param_estimate(0) = mean(inputdata->Y)/stddev(inputdata->Y); // initialize the intercept
