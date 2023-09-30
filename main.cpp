@@ -70,28 +70,46 @@ int main()
     tobitinput inputdata = readdata(nrows, ncols, inputfile);
 
     vec teststat(501, fill::zeros);
+    Col<int> iterations(501, fill::zeros);
+    vec prevalences(501, fill::zeros);
+    Col<int> fail(501, fill::zeros);
 
     // first fit the true data
     tobitoutput full_estimates = estimation(&inputdata, false);
-    full_estimates.params.print();
+    cout << "Full Model Estimates: " << endl;
+    full_estimates.params.as_row().print();
     cout << "Full loglik: " << full_estimates.llk << endl;
     cout << "Number of evaluations: " << full_estimates.nevals << endl;
     tobitoutput null_estimates = estimation(&inputdata, true);
-    null_estimates.params.print();
+    cout << "Null Model Estimates: " << endl;
+    null_estimates.params.as_row().print();
     cout << "Reduced loglik: " <<  null_estimates.llk << endl;
 
     teststat(0) = 2*(full_estimates.llk - null_estimates.llk);
+    iterations(0) = full_estimates.nevals;
+    prevalences(0) = accu(inputdata.Delta)/nrows;
+    fail(0) = 0;
+
     tobitinput boot_input = inputdata;
     //bootstrap
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
     for (unsigned int j=1; j<501; j++){
-        Col<uword> selected_indices = randi<uvec>(nrows, distr_param(0, nrows-1));
-        boot_input.Y = inputdata.Y.elem(selected_indices);
-        boot_input.Delta = inputdata.Delta.elem(selected_indices);
-        tobitoutput boot_full_estimates = estimation(&boot_input, false);
-        tobitoutput boot_null_estimates = estimation(&boot_input, true);
-        teststat(j) = 2*(boot_full_estimates.llk - boot_null_estimates.llk);
+        try{
+            arma_rng::set_seed(j+1000);
+            // Col<uword> selected_indices = randperm(nrows, nrows);
+            Col<uword> selected_indices = randi<uvec>(nrows, distr_param(0, nrows-1));
+            boot_input.Y = inputdata.Y.elem(selected_indices);
+            boot_input.Delta = inputdata.Delta.elem(selected_indices);
+            prevalences(j) = accu(boot_input.Delta)/nrows;
+            tobitoutput boot_full_estimates = estimation(&boot_input, false);
+            tobitoutput boot_null_estimates = estimation(&boot_input, true);
+            teststat(j) = 2*(boot_full_estimates.llk - boot_null_estimates.llk);
+            iterations(j) = boot_full_estimates.nevals;
+        } catch(std::runtime_error& err){
+            fail(j)=1;
+        }
+
     }
 
     std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
@@ -100,8 +118,9 @@ int main()
         std::endl;
 
     ofstream output(outputfile);
+    output << "Fail" << " " << "Prevalence" << " " << "Iterations" << " " << "Teststat" << endl;
     for(int j = 0; j<501; j ++){
-        output << teststat(j) << "\n" ;
+        output << fail(j) << " " << prevalences(j) << " " << iterations(j) << " " << teststat(j) << endl ;
     }
     output.close();
 

@@ -17,9 +17,10 @@ struct tobitinput{
     vec Y; // log count ratio
     vec Delta; // censorship
     mat X; // covariate matrix
+    size_t n_sample;
     tobitinput() = default;
     tobitinput(vec &dependent_vec, vec &censor_vec, mat &covar_mat):
-        Y(dependent_vec), Delta(censor_vec), X(covar_mat){}
+        Y(dependent_vec), Delta(censor_vec), X(covar_mat), n_sample(covar_mat.n_rows){}
 };
 
 
