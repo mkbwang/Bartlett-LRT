@@ -36,7 +36,10 @@ double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* i
 
     auto inputdata= (const tobitinput *) input;
     vec rho(params, ndim-1); // beta/sigma
+//    cout << "Effect Sizes: " << endl;
+//    rho.as_row().print();
     double omega = exp(params[ndim-1]); // 1/sigma=omega=exp(phi), sqrt(precision)
+//    cout << "Scale: " << 1/omega << endl;
     vec z = omega*inputdata->Y - inputdata->X * rho;
     vec cumnorm_z = normcdf(z);
     vec exp_2z2 = exp(-0.5*square(z));
@@ -67,6 +70,9 @@ double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* i
     information(span(0, ndim-2), ndim-1) = - inputdata->X.t() * (neg_deriv_z2 % inputdata->Y);
     information(ndim-1, span(0, ndim-2)) = information(span(0, ndim-2), ndim-1).as_row();
     // information.print();
+    if (!information.is_sympd()){
+        throw std::overflow_error("Ill formed information matrix");
+    }
     mat inv_information = inv_sympd(information); // sometimes complain about
 
     // negative 3rd derivative of log likelihood over z
@@ -88,7 +94,9 @@ double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* i
     information_deriv(span(0, ndim-2), ndim-1) = - inputdata->X.t() * (neg_deriv_z3 % square(inputdata->Y));
     information_deriv(ndim-1, span(0, ndim-2)) = information_deriv(span(0, ndim-2), ndim-1).as_row();
     grad[ndim-1] += 0.5 * trace(inv_information* information_deriv)*omega * inputdata->stepsize; // gradient of the log precision
-
+//    cout<< "Gradient of effect sizes (Firth): "<< endl;
+//    deriv_rho.as_row().print();
+//    cout << "grad of omega (Firth): " << grad[ndim-1] << endl;
     double firth_penalty = 0.5 * log_det_sympd(information);// real(logdet)
 
     // return log likelihood
@@ -118,8 +126,9 @@ tobitoutput estimation(void *input, bool null){
 
     nlopt_set_max_objective(opt, tobitllk_firth, input);
     nlopt_set_ftol_rel(opt, 1e-4);
-    nlopt_set_ftol_abs(opt, 1e-7);
-    nlopt_set_vector_storage(opt, 3); // specific for L-BFGS, number of past gradients
+    nlopt_set_ftol_abs(opt, 1e-5);
+    nlopt_set_maxeval(opt, 40);
+    nlopt_set_vector_storage(opt, 5); // specific for L-BFGS, number of past gradients
     // set up the parameter vector to estimate
     vec param_estimate(n_dim, fill::zeros);
     param_estimate(0) = mean(inputdata->Y)/stddev(inputdata->Y); // initialize the intercept

@@ -106,7 +106,7 @@ int main()
             tobitoutput boot_null_estimates = estimation(&boot_input, true);
             teststat(j) = 2*(boot_full_estimates.llk - boot_null_estimates.llk);
             iterations(j) = boot_full_estimates.nevals;
-        } catch(std::runtime_error& err){
+        } catch(std::overflow_error& err){
             fail(j)=1;
         }
 
