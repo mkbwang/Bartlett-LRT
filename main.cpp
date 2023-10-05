@@ -53,7 +53,7 @@ tobit_vanilla readdata(unsigned int nrows, unsigned int ncols, string inputfile)
         s.str(string());
         rowid++;
     }
-    tobit_vanilla tbvanilla_obj(Y, Delta, X);
+    tobit_vanilla tbvanilla_obj{Y, Delta, X, 1e-5, 50};
     return tbvanilla_obj;
 
 }
@@ -77,12 +77,13 @@ int main()
     cout << "Full Model: " << endl;
     int convergence = tbvanilla.fit();
     cout << "Convergence code: " << convergence << endl;
-    cout << "Number of iterations: " << tbvanilla.iter_counter << endl;
+    cout << "Number of iterations: " << tbvanilla.return_iterations() << endl;
     vec estimates = tbvanilla.return_param();
-    vec beta = estimates.head(tbvanilla.P) / estimates(tbvanilla.P);
-    cout << "Estimated Effect Sizess: " << endl;
+    size_t length=estimates.n_elem;
+    vec beta = estimates.head(length-1) / estimates(length-1);
+    cout << "Estimated Effect Sizes: " << endl;
     beta.as_row().print();
-    double sigma = 1 / estimates(tbvanilla.P);
+    double sigma = 1 / estimates(length-1);
     cout << "Estimated scale: " << sigma << endl;
     cout << "Log Likelihood: " << tbvanilla.return_llk() << endl;
 
@@ -90,12 +91,13 @@ int main()
     cout << "Null Model: " << endl;
     convergence = tbvanilla.fit();
     cout << "Convergence code: " << convergence << endl;
-    cout << "Number of iterations: " << tbvanilla.iter_counter << endl;
+    cout << "Number of iterations: " << tbvanilla.return_iterations() << endl;
     estimates = tbvanilla.return_param();
-    beta = estimates.head(tbvanilla.P) / estimates(tbvanilla.P);
-    cout << "Estimated Effect Sizess: " << endl;
+    length = estimates.n_elem;
+    beta = estimates.head(length-1) / estimates(length-1);
+    cout << "Estimated Effect Sizes: " << endl;
     beta.as_row().print();
-    sigma = 1 / estimates(tbvanilla.P);
+    sigma = 1 / estimates(length-1);
     cout << "Estimated scale: " << sigma << endl;
     cout << "Log Likelihood: " << tbvanilla.return_llk() << endl;
 

@@ -4,13 +4,13 @@
 
 #include "Tobit.h"
 
-
-tobit_vanilla::tobit_vanilla(const vec& Y_input, const vec& delta_input, const mat&X_input, double tolerance, size_t maxiter):
-        Y(Y_input), Delta(delta_input), X(X_input), N(X_input.n_rows), P(X_input.n_cols),
-        tolerance(tolerance), maxiter(maxiter)
-{
-    reset();
-}
+// First define the functions in the vanilla model
+tobit_vanilla::tobit_vanilla(const vec& Y_input, const vec& delta_input, const mat&X_input,
+              double tolerance, size_t maxiter):
+              model(Y_input, delta_input, X_input, tolerance, maxiter)
+              {
+                    reset();
+              };
 
 void tobit_vanilla::reset(bool null){
     params = vec(P+1, fill::zeros);
@@ -18,41 +18,42 @@ void tobit_vanilla::reset(bool null){
     params(P) = 1/stddev(Y);
     fixed = uvec(P+1, fill::zeros);
     isnull = null;
-    if (null){
+    if (isnull){
         fixed(1) = 1;
     }
-    //step_params = vec(P+1, fill::zeros);
     score = vec(P+1, fill::zeros);
-    //step_score = vec(P+1, fill::zeros);
     hessian = mat(P+1, P+1, fill::zeros);
     update_utils();
     llk = calc_llk();
     iter_counter = 0;
     convergence_code = SUCCESS;
-}
+} // reset the parameters
 
-
-double tobit_vanilla::calc_llk(){
-    vec llks = Delta % (-0.5*square(Z) - 0.5*log(2*datum::pi) + log(params(P))) + \
-        (1 - Delta) % log(cumnorm_z);
-    return accu(llks);
-}
-
-void tobit_vanilla::update_utils() {
+// update the vectors related to z
+void tobit_vanilla::update_utils(){
     Z = params(P)*Y -  X*params.head(P);
     cumnorm_z = normcdf(Z);
     exp_2z2 = exp(-0.5*square(Z));
 }
 
-void tobit_vanilla::update_deriv() {
+//calculate log likelihood
+double tobit_vanilla::calc_llk(){
+    vec llks = Delta % (-0.5*square(Z) - 0.5*log(2*datum::pi) + log(params(P))) + \
+    (1 - Delta) % log(cumnorm_z);
+    return accu(llks);
+}
+
+//update derivatives
+void tobit_vanilla::update_deriv(){
     deriv_z = -Delta % Z + 1/sqrt(2*datum::pi) * (1-Delta) / cumnorm_z % exp_2z2;
     score.head(P) = - X.t() * deriv_z;
     score(P) = accu(Delta)/params(P) + accu(deriv_z % Y) ;
 }
 
-int tobit_vanilla::update_hessian() {
+//update hessian
+int tobit_vanilla::update_hessian(){
     deriv_2z = -Delta - (1 - Delta) / (2*datum::pi) % square(exp_2z2) / square(cumnorm_z) - \
-        (1 - Delta) / sqrt(2*datum::pi) % Z % exp_2z2 / cumnorm_z;
+    (1 - Delta) / sqrt(2*datum::pi) % Z % exp_2z2 / cumnorm_z;
     hessian(span(0, P-1), span(0, P-1)) =  X.t() * diagmat(deriv_2z) * X;
     hessian(P, P) = - 1/pow(params(P), 2) * accu( Delta) + accu(deriv_2z % square(Y));
     hessian(span(0, P-1), P) = - X.t() * (deriv_2z % Y);
@@ -67,6 +68,7 @@ int tobit_vanilla::update_hessian() {
     }
 }
 
+//update parameter
 void tobit_vanilla::update_param(){
     if (!isnull) {// full model
         params = params + solve(-hessian, score, arma::solve_opts::likely_sympd);
@@ -75,14 +77,13 @@ void tobit_vanilla::update_param(){
         mat working_hessian = hessian(nuisance_index, nuisance_index);
         vec working_score = score(nuisance_index);
         params(nuisance_index) = params(nuisance_index) + \
-            solve(-working_hessian, working_score, arma::solve_opts::likely_sympd);
+        solve(-working_hessian, working_score, arma::solve_opts::likely_sympd);
     }
-    //step_params = new_params - params;
 }
 
 int tobit_vanilla::fit(){
 
-    for(iter_counter = 0; iter_counter < maxiter; iter_counter++){
+    while(iter_counter < maxiter){
         update_deriv();
         int hessian_check = update_hessian();
         if (hessian_check > 0){
@@ -90,6 +91,7 @@ int tobit_vanilla::fit(){
             break;
         }
         update_param();
+        iter_counter++;
         update_utils();
         double new_llk = calc_llk();
         if(abs((new_llk - llk)/llk) < tolerance){
@@ -103,17 +105,11 @@ int tobit_vanilla::fit(){
         convergence_code = STOPEARLY;
     }
     return convergence_code;
-};
-
-
-vec tobit_vanilla::return_param(){
-    return params;
 }
 
-double tobit_vanilla::return_llk() {
-    return llk;
+int tobit_vanilla::return_iterations() {
+    return iter_counter;
 }
-
 
 
 
