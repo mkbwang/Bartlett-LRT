@@ -24,7 +24,6 @@ protected:
     mat X; // covariate matrix (including intercept), dimension N*P
     double tolerance; // relative tolerance of llk to stop the NR/BFGS iterations
     size_t maxiter; // max iterations
-    bool isnull; // if fitting a null model, the second parameter will never be updated and always fixed to zero
     size_t N; // number of individuals N
     size_t P; // number of effect sizes to estimate P
     vec params; // parameters to estimate, including rho(effect sizes) and phi(-log scale), dimension P+1
@@ -34,15 +33,15 @@ public:
     model(const vec& Y_input, const vec& delta_input, const mat&X_input,
           double tolerance = 1e-4, size_t maxiter=50):
             Y(Y_input), Delta(delta_input), X(X_input), N(X_input.n_rows), P(X_input.n_cols),
-            tolerance(tolerance), maxiter(maxiter), isnull(false), params(vec(X_input.n_cols+1, fill::zeros)),
+            tolerance(tolerance), maxiter(maxiter), params(vec(X_input.n_cols+1, fill::zeros)),
             llk(0){};
-    virtual void reset(bool null=false) = 0; // reset the parameters
-    // update some utility variables for calculation of likelihood and gradients
+    virtual void reset(bool reduced=false, uvec null_indices = {1}) = 0; // reset the parameters
+    // update some utility variables for calculation of likelihood, score and hessians
     virtual void update_utils() = 0;
     //calculate log likelihood
-    virtual double calc_llk() = 0;
+    virtual void update_llk() = 0;
     //update derivatives
-    virtual void update_deriv() = 0;
+    virtual void update_score() = 0;
     //update hessian
     virtual int update_hessian() = 0; // check if negative hessian (information) is positive definite
     //update parameter
@@ -62,30 +61,51 @@ public:
 
 class tobit_vanilla: public model{
 protected:
-    uvec fixed; // indicator of whether any parameter is fixed
+    bool isreduced; // whether you are fitting a reduced model
     vec Z; // exp(phi)*Y - X^t rho, dimension N
     vec cumnorm_z; // cumulative distribution of standard normal for each individual z, dimension N
     vec exp_2z2; // exp(-0.5*z^2), dimension N
     vec deriv_z; // first derivative of llk over each individual z, dimension N
     vec deriv_2z; // second derivative of llk over each individual z, dimension N
+    uvec subindices; // indices of parameters to be estimated (for null models)
     vec score; // derivative of llk over all the parameters parameter (score equation), dimension P+1
+    vec working_score; // shorter than score when fitting a reduced model
     mat hessian; // second derivative (hessian) of llk over each parameter, dimension (P+1)*(P+1)
+    mat working_hessian; // smaller than hessian when fitting a reduced model
     size_t iter_counter;
     int convergence_code; // an integer representing the convergence codes
 public:
     tobit_vanilla(const vec& Y_input, const vec& delta_input, const mat&X_input,
                   double tolerance = 1e-4, size_t maxiter=50);
-    void reset(bool null=false);
+    void reset(bool reduced=false, uvec null_indices = {1});
     void update_utils();
-    double calc_llk();
-    void update_deriv();
-    int update_hessian();
-    void update_param();
+    virtual void update_llk();
+    double tobit_vanilla_llk();
+    virtual void update_score();
+    vec tobit_vanilla_score();
+    virtual int update_hessian();
+    mat tobit_vanilla_hessian();
+    void update_param();//TODO: calculate and store step size of the parameters
     int fit();
     int return_iterations();
 };
 
-class tobit_firth;
+class tobit_firth: public tobit_vanilla{
+protected:
+    vec deriv_3z; // third derivative of llk over each individual z, dimension N
+    vec step_working_score; // most recent step of the score vector
+    vec step_working_params; // most recent step of the params
+public:
+    tobit_firth(const vec& Y_input, const vec& delta_input, const mat&X_input,
+                double tolerance = 1e-4, size_t maxiter=50);
+
+    void update_llk();
+    double tobit_firth_llk();
+    void update_score();//TODO: calculate new score vector and store the score vector difference
+    vec tobit_firth_score();
+    int update_hessian();//TODO: BFGS update based on current approximate hessian, parameter difference and score difference
+
+};
 
 
 

@@ -12,19 +12,22 @@ tobit_vanilla::tobit_vanilla(const vec& Y_input, const vec& delta_input, const m
                     reset();
               };
 
-void tobit_vanilla::reset(bool null){
+void tobit_vanilla::reset(bool reduced, uvec null_indices){
     params = vec(P+1, fill::zeros);
     params(0) = mean(Y)/stddev(Y);
     params(P) = 1/stddev(Y);
-    fixed = uvec(P+1, fill::zeros);
-    isnull = null;
-    if (isnull){
-        fixed(1) = 1;
+    uvec fixed = uvec(P+1, fill::zeros);
+    isreduced = reduced;
+    if (isreduced){
+        fixed.elem(null_indices) = uvec(null_indices.n_elem, fill::ones);
     }
+    subindices = find(fixed == 0);
     score = vec(P+1, fill::zeros);
+    working_score = score(subindices);
     hessian = mat(P+1, P+1, fill::zeros);
+    working_hessian = hessian(subindices, subindices);
     update_utils();
-    llk = calc_llk();
+    update_llk();
     iter_counter = 0;
     convergence_code = SUCCESS;
 } // reset the parameters
@@ -36,31 +39,58 @@ void tobit_vanilla::update_utils(){
     exp_2z2 = exp(-0.5*square(Z));
 }
 
-//calculate log likelihood
-double tobit_vanilla::calc_llk(){
+
+double tobit_vanilla::tobit_vanilla_llk(){
     vec llks = Delta % (-0.5*square(Z) - 0.5*log(2*datum::pi) + log(params(P))) + \
-    (1 - Delta) % log(cumnorm_z);
+        (1 - Delta) % log(cumnorm_z);
     return accu(llks);
 }
 
-//update derivatives
-void tobit_vanilla::update_deriv(){
+void tobit_vanilla::update_llk(){
+    llk = tobit_vanilla_llk();
+}
+
+vec tobit_vanilla::tobit_vanilla_score() {
     deriv_z = -Delta % Z + 1/sqrt(2*datum::pi) * (1-Delta) / cumnorm_z % exp_2z2;
-    score.head(P) = - X.t() * deriv_z;
-    score(P) = accu(Delta)/params(P) + accu(deriv_z % Y) ;
+    vec new_score(P+1, fill::zeros);
+    new_score.head(P) = - X.t() * deriv_z;
+    new_score(P) = accu(Delta)/params(P) + accu(deriv_z % Y) ;
+    return new_score;
+}
+
+
+void tobit_vanilla::update_score(){
+    score = tobit_vanilla_score();
+    if(isreduced){ // reduced model
+        working_score = score(subindices);
+    } else{
+        working_score = score;
+    }
+}
+
+mat tobit_vanilla::tobit_vanilla_hessian(){
+
+    mat new_hessian(P+1, P+1, fill::zeros);
+    deriv_2z = -Delta - (1 - Delta) / (2*datum::pi) % square(exp_2z2) / square(cumnorm_z) - \
+        (1 - Delta) / sqrt(2*datum::pi) % Z % exp_2z2 / cumnorm_z;
+    new_hessian(span(0, P-1), span(0, P-1)) =  X.t() * diagmat(deriv_2z) * X;
+    new_hessian(P, P) = - 1/pow(params(P), 2) * accu( Delta) + accu(deriv_2z % square(Y));
+    new_hessian(span(0, P-1), P) = - X.t() * (deriv_2z % Y);
+    new_hessian(P, span(0, P-1)) = new_hessian(span(0, P-1), P).as_row();
+
+    return new_hessian;
 }
 
 //update hessian
 int tobit_vanilla::update_hessian(){
-    deriv_2z = -Delta - (1 - Delta) / (2*datum::pi) % square(exp_2z2) / square(cumnorm_z) - \
-    (1 - Delta) / sqrt(2*datum::pi) % Z % exp_2z2 / cumnorm_z;
-    hessian(span(0, P-1), span(0, P-1)) =  X.t() * diagmat(deriv_2z) * X;
-    hessian(P, P) = - 1/pow(params(P), 2) * accu( Delta) + accu(deriv_2z % square(Y));
-    hessian(span(0, P-1), P) = - X.t() * (deriv_2z % Y);
-    hessian(P, span(0, P-1)) = hessian(span(0, P-1), P).as_row();
+    hessian = tobit_vanilla_hessian();
+    if(isreduced){
+        working_hessian = hessian(subindices, subindices);
+    } else{
+        working_hessian = hessian;
+    }
 
-    mat information = -hessian;
-
+    mat information = -working_hessian;
     if (information.is_sympd()){
         return SUCCESS;
     } else{
@@ -70,21 +100,19 @@ int tobit_vanilla::update_hessian(){
 
 //update parameter
 void tobit_vanilla::update_param(){
-    if (!isnull) {// full model
-        params = params + solve(-hessian, score, arma::solve_opts::likely_sympd);
-    } else{// null model
-        uvec nuisance_index = find(fixed == 0);
-        mat working_hessian = hessian(nuisance_index, nuisance_index);
-        vec working_score = score(nuisance_index);
-        params(nuisance_index) = params(nuisance_index) + \
-        solve(-working_hessian, working_score, arma::solve_opts::likely_sympd);
+    if (isreduced) {// reduced model
+        params(subindices) = params(subindices) + \
+            solve(-working_hessian, working_score, arma::solve_opts::likely_sympd);
+    } else{// full model
+        params= params + \
+            solve(-working_hessian, working_score, arma::solve_opts::likely_sympd);
     }
 }
 
 int tobit_vanilla::fit(){
 
     while(iter_counter < maxiter){
-        update_deriv();
+        update_score();
         int hessian_check = update_hessian();
         if (hessian_check > 0){
             convergence_code = FAIL;
@@ -93,11 +121,10 @@ int tobit_vanilla::fit(){
         update_param();
         iter_counter++;
         update_utils();
-        double new_llk = calc_llk();
-        if(abs((new_llk - llk)/llk) < tolerance){
+        double old_llk = llk;
+        update_llk();
+        if(abs((llk - old_llk)/old_llk) < tolerance){
             break;
-        } else{
-            llk = new_llk;
         }
     }
 
