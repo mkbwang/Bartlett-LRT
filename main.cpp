@@ -1,6 +1,5 @@
 #include <iostream>
 #include <cmath>
-//#include <nlopt.h>
 #include <armadillo>
 #include "Tobit.h"
 #include <chrono>
@@ -34,7 +33,7 @@ int countcols(string filename){
     return ncol;
 }
 
-tobit_vanilla readdata(unsigned int nrows, unsigned int ncols, string inputfile){
+tobit_firth readdata(unsigned int nrows, unsigned int ncols, string inputfile){
 
     vec Y(nrows);
     vec Delta(nrows);
@@ -53,8 +52,8 @@ tobit_vanilla readdata(unsigned int nrows, unsigned int ncols, string inputfile)
         s.str(string());
         rowid++;
     }
-    tobit_vanilla tbvanilla_obj{Y, Delta, X, 1e-5, 50};
-    return tbvanilla_obj;
+    tobit_firth tbmodel_obj{Y, Delta, X, 1e-5, 50};
+    return tbmodel_obj;
 
 }
 
@@ -67,7 +66,7 @@ int main()
     int nrows=countrows(inputfile);
     int ncols=countcols(inputfile);
 
-    tobit_vanilla tbvanilla = readdata(nrows, ncols, inputfile);
+    tobit_firth tbmodel = readdata(nrows, ncols, inputfile);
 //    vec teststat(501, fill::zeros);
 //    Col<int> iterations(501, fill::zeros);
 //    vec prevalences(501, fill::zeros);
@@ -75,31 +74,31 @@ int main()
 
     // first fit the true data
     cout << "Full Model: " << endl;
-    int convergence = tbvanilla.fit();
+    int convergence = tbmodel.fit();
     cout << "Convergence code: " << convergence << endl;
-    cout << "Number of iterations: " << tbvanilla.return_iterations() << endl;
-    vec estimates = tbvanilla.return_param();
+    cout << "Number of iterations: " << tbmodel.return_iterations() << endl;
+    vec estimates = tbmodel.return_param();
     size_t length=estimates.n_elem;
     vec beta = estimates.head(length-1) / estimates(length-1);
     cout << "Estimated Effect Sizes: " << endl;
     beta.as_row().print();
     double sigma = 1 / estimates(length-1);
     cout << "Estimated scale: " << sigma << endl;
-    cout << "Log Likelihood: " << tbvanilla.return_llk() << endl;
+    cout << "Log Likelihood: " << tbmodel.return_llk() << endl;
 
-    tbvanilla.reset(true);
+    tbmodel.reset(true);
     cout << "Null Model: " << endl;
-    convergence = tbvanilla.fit();
+    convergence = tbmodel.fit();
     cout << "Convergence code: " << convergence << endl;
-    cout << "Number of iterations: " << tbvanilla.return_iterations() << endl;
-    estimates = tbvanilla.return_param();
+    cout << "Number of iterations: " << tbmodel.return_iterations() << endl;
+    estimates = tbmodel.return_param();
     length = estimates.n_elem;
     beta = estimates.head(length-1) / estimates(length-1);
     cout << "Estimated Effect Sizes: " << endl;
     beta.as_row().print();
     sigma = 1 / estimates(length-1);
     cout << "Estimated scale: " << sigma << endl;
-    cout << "Log Likelihood: " << tbvanilla.return_llk() << endl;
+    cout << "Log Likelihood: " << tbmodel.return_llk() << endl;
 
 //    tobitoutput full_estimates = estimation(&inputdata, false);
 //    cout << "Full Model Estimates: " << endl;

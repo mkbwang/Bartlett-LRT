@@ -3,7 +3,6 @@
 //
 #include <iostream>
 #include <cmath>
-//#include <nlopt.h>
 #include <armadillo>
 
 using namespace std;
@@ -68,6 +67,7 @@ protected:
     vec deriv_z; // first derivative of llk over each individual z, dimension N
     vec deriv_2z; // second derivative of llk over each individual z, dimension N
     uvec subindices; // indices of parameters to be estimated (for null models)
+    vec step_working_params; // most recent step of the params
     vec score; // derivative of llk over all the parameters parameter (score equation), dimension P+1
     vec working_score; // shorter than score when fitting a reduced model
     mat hessian; // second derivative (hessian) of llk over each parameter, dimension (P+1)*(P+1)
@@ -85,7 +85,7 @@ public:
     vec tobit_vanilla_score();
     virtual int update_hessian();
     mat tobit_vanilla_hessian();
-    void update_param();//TODO: calculate and store step size of the parameters
+    void update_param();
     int fit();
     int return_iterations();
 };
@@ -94,26 +94,17 @@ class tobit_firth: public tobit_vanilla{
 protected:
     vec deriv_3z; // third derivative of llk over each individual z, dimension N
     vec step_working_score; // most recent step of the score vector
-    vec step_working_params; // most recent step of the params
+    mat inv_information; // inverse of information matrix
 public:
     tobit_firth(const vec& Y_input, const vec& delta_input, const mat&X_input,
                 double tolerance = 1e-4, size_t maxiter=50);
 
-    void update_llk();
+    void update_llk() override;
     double tobit_firth_llk();
-    void update_score();//TODO: calculate new score vector and store the score vector difference
+    void update_score() override;
     vec tobit_firth_score();
-    int update_hessian();//TODO: BFGS update based on current approximate hessian, parameter difference and score difference
+    int update_hessian() override;
 
 };
 
-
-
-
-// tobit loglikelihood function
-//double tobitllk_vanilla(unsigned ndim, const double* params, double* grad, void* input);
-//double tobitllk_firth(unsigned ndim, const double* params, double* grad, void* input);
-// tobit estimation
-//tobitoutput estimation(void *input, bool null=false);
-
-#endif //BARTLETT_LRT_TOBIT_H
+#endif //TOBIT_H
