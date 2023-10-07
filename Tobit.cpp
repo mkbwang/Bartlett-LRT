@@ -7,12 +7,22 @@
 // First define the functions in the vanilla model
 tobit_vanilla::tobit_vanilla(const vec& Y_input, const vec& delta_input, const mat&X_input,
               double tolerance, size_t maxiter):
-              model(Y_input, delta_input, X_input, tolerance, maxiter)
+              model(Y_input, delta_input, X_input, tolerance, maxiter), Y_orig(Y_input), Delta_orig(delta_input)
               {
                     reset();
               };
 
-void tobit_vanilla::reset(bool reduced, uvec null_indices){
+void tobit_vanilla::reset(bool reduced, uvec null_indices , bool bootstrap, int seed){
+
+    if(bootstrap){
+        arma_rng::set_seed(seed);
+        uvec boot_indices = randi<uvec>(N, distr_param(0, N-1));
+        Y = Y_orig(boot_indices);
+        Delta = Delta_orig(boot_indices);
+    } else{
+        Y = Y_orig;
+        Delta = Delta_orig;
+    }
     params = vec(P+1, fill::zeros);
     params(0) = mean(Y)/stddev(Y);
     params(P) = 1/stddev(Y);
@@ -104,6 +114,13 @@ int tobit_vanilla::update_hessian(){
 
 void tobit_vanilla::update_param(){
     step_working_params = solve(-working_hessian, working_score, arma::solve_opts::likely_sympd);
+
+    // prevent the inverse scale parameter to become smaller than zero
+    double inv_scale_step = step_working_params(step_working_params.n_elem-1);
+    if (params(P) + inv_scale_step < 0){
+        step_working_params = step_working_params * abs(params(P)/inv_scale_step) / 2;
+    }
+
     if (isreduced) {// reduced model
         params(subindices) = params(subindices) + step_working_params;
     } else{// full model
@@ -140,6 +157,9 @@ int tobit_vanilla::return_iterations() {
     return iter_counter;
 }
 
+double tobit_vanilla::return_prevalences() {
+    return accu(Delta)/N;
+}
 
 // extra functions/overrides for tobit_firth
 tobit_firth::tobit_firth(const arma::vec &Y_input, const arma::vec &delta_input, const arma::mat &X_input,

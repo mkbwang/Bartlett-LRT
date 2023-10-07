@@ -61,6 +61,8 @@ public:
 class tobit_vanilla: public model{
 protected:
     bool isreduced; // whether you are fitting a reduced model
+    vec Y_orig; // original response vector (in contrast with potentially bootstrapped Y)
+    vec Delta_orig; // original incidence vector (in contrast with potentially boostrapped Delta)
     vec Z; // exp(phi)*Y - X^t rho, dimension N
     vec cumnorm_z; // cumulative distribution of standard normal for each individual z, dimension N
     vec exp_2z2; // exp(-0.5*z^2), dimension N
@@ -77,7 +79,7 @@ protected:
 public:
     tobit_vanilla(const vec& Y_input, const vec& delta_input, const mat&X_input,
                   double tolerance = 1e-4, size_t maxiter=50);
-    void reset(bool reduced=false, uvec null_indices = {1});
+    void reset(bool reduced=false, uvec null_indices = {1}, bool bootstrap=false, int seed=1);
     void update_utils() override;
     void update_llk() override;
     double tobit_vanilla_llk() ;
@@ -88,6 +90,7 @@ public:
     void update_param() override;
     int fit()override;
     int return_iterations();
+    double return_prevalences();
 };
 
 class tobit_firth: public tobit_vanilla{
