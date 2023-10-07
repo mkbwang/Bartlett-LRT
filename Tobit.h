@@ -34,7 +34,7 @@ public:
             Y(Y_input), Delta(delta_input), X(X_input), N(X_input.n_rows), P(X_input.n_cols),
             tolerance(tolerance), maxiter(maxiter), params(vec(X_input.n_cols+1, fill::zeros)),
             llk(0){};
-    virtual void reset(bool reduced=false, uvec null_indices = {1}) = 0; // reset the parameters
+
     // update some utility variables for calculation of likelihood, score and hessians
     virtual void update_utils() = 0;
     //calculate log likelihood
@@ -78,15 +78,15 @@ public:
     tobit_vanilla(const vec& Y_input, const vec& delta_input, const mat&X_input,
                   double tolerance = 1e-4, size_t maxiter=50);
     void reset(bool reduced=false, uvec null_indices = {1});
-    void update_utils();
-    virtual void update_llk();
-    double tobit_vanilla_llk();
-    virtual void update_score();
-    vec tobit_vanilla_score();
-    virtual int update_hessian();
+    void update_utils() override;
+    void update_llk() override;
+    double tobit_vanilla_llk() ;
+    void update_score() override;
+    vec tobit_vanilla_score() ;
+    int update_hessian() override;
     mat tobit_vanilla_hessian();
-    void update_param();
-    int fit();
+    void update_param() override;
+    int fit()override;
     int return_iterations();
 };
 
