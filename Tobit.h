@@ -79,7 +79,8 @@ protected:
 public:
     tobit_vanilla(const vec& Y_input, const vec& delta_input, const mat&X_input,
                   double tolerance = 1e-4, size_t maxiter=50);
-    void reset(bool reduced=false, uvec null_indices = {1}, bool bootstrap=false, int seed=1);
+    void reset(bool reduced=false, uvec null_indices = {1});
+    void reorder(bool bootstrap=false);
     void update_utils() override;
     void update_llk() override;
     double tobit_vanilla_llk() ;

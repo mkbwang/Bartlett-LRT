@@ -9,20 +9,12 @@ tobit_vanilla::tobit_vanilla(const vec& Y_input, const vec& delta_input, const m
               double tolerance, size_t maxiter):
               model(Y_input, delta_input, X_input, tolerance, maxiter), Y_orig(Y_input), Delta_orig(delta_input)
               {
+                    reorder(false);
                     reset();
               };
 
-void tobit_vanilla::reset(bool reduced, uvec null_indices , bool bootstrap, int seed){
+void tobit_vanilla::reset(bool reduced, uvec null_indices){
 
-    if(bootstrap){
-        arma_rng::set_seed(seed);
-        uvec boot_indices = randi<uvec>(N, distr_param(0, N-1));
-        Y = Y_orig(boot_indices);
-        Delta = Delta_orig(boot_indices);
-    } else{
-        Y = Y_orig;
-        Delta = Delta_orig;
-    }
     params = vec(P+1, fill::zeros);
     params(0) = mean(Y)/stddev(Y);
     params(P) = 1/stddev(Y);
@@ -44,6 +36,20 @@ void tobit_vanilla::reset(bool reduced, uvec null_indices , bool bootstrap, int 
     iter_counter = 0;
     convergence_code = SUCCESS;
 } // reset the parameters
+
+void tobit_vanilla::reorder(bool bootstrap){
+
+    if(bootstrap){
+        uvec boot_indices = randi<uvec>(N, distr_param(0, N-1));
+        Y = Y_orig(boot_indices);
+        Delta = Delta_orig(boot_indices);
+    } else{
+        Y = Y_orig;
+        Delta = Delta_orig;
+    }
+
+}
+
 
 // update the vectors related to z
 void tobit_vanilla::update_utils(){

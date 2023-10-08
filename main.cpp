@@ -114,7 +114,8 @@ int main()
 
     for (unsigned int j=1; j<501; j++){
         try{
-            tbmodel.reset(false, {1}, true, j);
+            tbmodel.reorder(true); // bootstrap the responses
+            tbmodel.reset(false, {1});
             prevalences(j) = tbmodel.return_prevalences();
             convergence = tbmodel.fit();
             if (convergence != 0){
@@ -124,7 +125,7 @@ int main()
             full_llk = tbmodel.return_llk();
             iterations(j) = n_iter_full;
 
-            tbmodel.reset(true, {1}, true, j);
+            tbmodel.reset(true, {1});
             convergence = tbmodel.fit();
             if (convergence != 0){
                 throw std::runtime_error("Reduced model didn't converge");
