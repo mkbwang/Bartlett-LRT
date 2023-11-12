@@ -37,7 +37,9 @@ tobit_firth readdata(unsigned int nrows, unsigned int ncols, string inputfile){
 
     vec Y(nrows);
     vec Delta(nrows);
-    mat X(nrows, ncols-1, fill::ones);
+    vec Nmt(nrows); // numerator
+    vec Denom(nrows); // denominator
+    mat X(nrows, ncols-3, fill::ones);
 
     unsigned int rowid = 0;
     string line;
@@ -45,14 +47,14 @@ tobit_firth readdata(unsigned int nrows, unsigned int ncols, string inputfile){
     while(getline(newfile, line)){
         stringstream s;
         s << line;
-        s >> Y(rowid) >> Delta(rowid);
-        for (int j=1; j<ncols-1; j++){
+        s >> Y(rowid) >> Delta(rowid) >> Nmt(rowid) >> Denom(rowid);
+        for (int j=1; j<ncols-3; j++){
             s >> X(rowid, j);
         }
         s.str(string());
         rowid++;
     }
-    tobit_firth tbmodel_obj{Y, Delta, X, 1e-5, 50};
+    tobit_firth tbmodel_obj{Nmt, Denom, Delta, X, 1e-5, 50};
     return tbmodel_obj;
 
 }
@@ -62,15 +64,16 @@ int main()
 {
 
     string inputfile="/home/wangmk/UM/Research/MDAWG/Bartlett-LRT/example_data.txt";
-    string outputfile="/home/wangmk/UM/Research/MDAWG/Bartlett-LRT/teststats.txt";
+    // string outputfile="/home/wangmk/UM/Research/MDAWG/Bartlett-LRT/teststats_old.txt";
+    string outputfile="/home/wangmk/UM/Research/MDAWG/Bartlett-LRT/teststats_new.txt";
     int nrows=countrows(inputfile);
     int ncols=countcols(inputfile);
 
     tobit_firth tbmodel = readdata(nrows, ncols, inputfile);
-    vec teststat(501, fill::zeros);
-    Col<int> iterations(501, fill::zeros);
-    vec prevalences(501, fill::zeros);
-    Col<int> fail(501, fill::zeros);
+    vec teststat(2001, fill::zeros);
+    Col<int> iterations(2001, fill::zeros);
+    vec prevalences(2001, fill::zeros);
+    Col<int> fail(2001, fill::zeros);
 
     // first fit the true data
     cout << "Full Model: " << endl;
@@ -112,7 +115,7 @@ int main()
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
-    for (unsigned int j=1; j<501; j++){
+    for (unsigned int j=1; j<2001; j++){
         try{
             tbmodel.reorder(true); // bootstrap the responses
             tbmodel.reset(false, {1});
@@ -146,7 +149,7 @@ int main()
 
     ofstream output(outputfile);
     output << "Fail" << " " << "Prevalence" << " " << "Iterations" << " " << "Teststat" << endl;
-    for(int j = 0; j<501; j ++){
+    for(int j = 0; j<2001; j ++){
         output << fail(j) << " " << prevalences(j) << " " << iterations(j) << " " << teststat(j) << endl ;
     }
     output.close();
